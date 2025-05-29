@@ -27,14 +27,19 @@ namespace IssueLabelerService
 
             var searchContentResults = await GetSearchContentResults(issue);
 
+            double solutionThreshold = double.Parse(_config.SolutionThreshold);
+
+            var searchContentResults = await GetSearchContentResults(issue);
+
             var labels = await GetLabelsAsync(issue.RepositoryName);
 
             var categoryLabels = GetCategoryLabelsForPrompt(labels, issue.RepositoryName);
             var printableContent = string.Join("\n\n", searchContentResults.Select(searchContent =>
-                $"Title: {searchContent.Title}\nDescription: {searchContent.Chunk}\nURL: {searchContent.Url}\nScore: {searchContent.Score}"));
+                $"Title: {searchContent.Title}\nDescription: {searchContent.chunk}\nURL: {searchContent.Url}\nScore: {searchContent.Score}"));
             var userPrompt = FormatUserPrompt(issue, categoryLabels, printableContent);
 
             var structure = BuildSearchStructure();
+            var result = await _ragService.SendMessageQnaAsync(_config.LabelInstructions, userPrompt, modelName, structure);
             var result = await _ragService.SendMessageQnaAsync(_config.LabelInstructions, userPrompt, modelName, structure);
 
             if (string.IsNullOrEmpty(result))
@@ -44,16 +49,20 @@ namespace IssueLabelerService
 
             var output = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
 
+            var output = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
+
             // Filter the output to exclude keys containing "ConfidenceScore"
             var filteredOutput = output
                 .Where(kv => !kv.Key.Contains("ConfidenceScore", StringComparison.OrdinalIgnoreCase))
                 .ToDictionary(kv => kv.Key, kv => kv.Value);
 
             if (!ValidateLabels(labels, filteredOutput))
+            if (!ValidateLabels(labels, filteredOutput))
             {
                 throw new InvalidDataException($"Open AI Response for {issue.RepositoryName} using the Open AI Labeler for issue #{issue.IssueNumber} provided invalid labels: {string.Join(", ", filteredOutput.Select(kv => $"{kv.Key}: {kv.Value}"))}");
             }
 
+            ValidateConfidenceScores(filteredOutput, output, issue);
             ValidateConfidenceScores(filteredOutput, output, issue);
 
             _logger.LogInformation($"Open AI Response for {issue.RepositoryName} using the Open AI Labeler for issue #{issue.IssueNumber}: {string.Join(", ", filteredOutput.Select(kv => $"{kv.Key}: {kv.Value}"))}");
@@ -134,9 +143,9 @@ namespace IssueLabelerService
         {
             var indexName = _config.IndexName;
             var semanticName = _config.SemanticName;
-            var query = $"{issue.Title} {issue.Body}";
-            var top = int.Parse(_config.SourceCount);
-            var scoreThreshold = double.Parse(_config.ScoreThreshold);
+            string query = $"{issue.Title} {issue.Body}";
+            int top = int.Parse(_config.SourceCount);
+            double scoreThreshold = double.Parse(_config.ScoreThreshold);
             var fieldName = _config.IssueIndexFieldName;
 
             _logger.LogInformation($"Searching content index '{indexName}' with query: {query}");
@@ -178,17 +187,13 @@ namespace IssueLabelerService
         {
             foreach (var label in filteredOutput)
             {
-
                 try
                 {
-
                     var confidence = double.Parse(output[$"{label.Key}ConfidenceScore"]);
-
                     if (label.Value == "UNKNOWN")
                     {
                         throw new InvalidDataException($"Open AI Response for {issue.RepositoryName} using the Open AI Labeler for issue #{issue.IssueNumber} provided an UNKNOWN label.");
                     }
-                    
                     if (confidence < double.Parse(_config.ConfidenceThreshold))
                     {
                         throw new InvalidDataException($"Open AI Response for {issue.RepositoryName} using the Open AI Labeler for issue #{issue.IssueNumber} Confidence below threshold: {confidence} < {_config.ConfidenceThreshold}.");

@@ -12,9 +12,12 @@ namespace IssueLabelerService
     {
         private const string SolutionAnswerType = "solution";
         private const string SuggestionsAnswerType = "suggestions";
+        private const string SolutionAnswerType = "solution";
+        private const string SuggestionsAnswerType = "suggestions";
         private RepositoryConfiguration _config;
         private TriageRag _ragService;
         private ILogger<AnswerFactory> _logger;
+        
         
         public OpenAiAnswerService(ILogger<AnswerFactory> logger, RepositoryConfiguration config, TriageRag ragService)
         {
@@ -31,7 +34,7 @@ namespace IssueLabelerService
             var searchContentResults = await GetSearchContentResults(issue, labels);
 
             var printableContent = string.Join("\n\n", searchContentResults.Select(searchContent =>
-                $"Title: {searchContent.Title}\nDescription: {searchContent.Chunk}\nURL: {searchContent.Url}\nScore: {searchContent.Score}"));
+                $"Title: {searchContent.Title}\nDescription: {searchContent.chunk}\nURL: {searchContent.Url}\nScore: {searchContent.Score}"));
 
             var highestScore = _ragService.GetHighestScoreForContent(searchContentResults, issue.RepositoryName, issue.IssueNumber);
             _logger.LogInformation($"Highest relevance score among the sources: {highestScore}");
@@ -92,6 +95,8 @@ namespace IssueLabelerService
                 { "Description", issue.Body },
                 { "AnswerType", answerType },
                 { "PrintableContent", printableContent }
+                { "AnswerType", answerType },
+                { "PrintableContent", printableContent }
             };
 
             return AzureSdkIssueLabelerService.FormatTemplate(
@@ -103,15 +108,14 @@ namespace IssueLabelerService
 
         private string FormatResponse(string answerType, IssuePayload issue, string response)
         {
-            string intro;
-            string outro;
-            
+            string intro, outro;
             var replacementsIntro = new Dictionary<string, string>
             {
                 { "IssueUserLogin", issue.IssueUserLogin },
                 { "RepositoryName", issue.RepositoryName }
             };
 
+            if (answerType == SolutionAnswerType)
             if (answerType == SolutionAnswerType)
             {
                 intro = AzureSdkIssueLabelerService.FormatTemplate(_config.SolutionResponseIntroduction, replacementsIntro, _logger);
@@ -128,6 +132,7 @@ namespace IssueLabelerService
                 throw new Exception($"Open AI Response for {issue.RepositoryName} using the Complete Triage model for issue #{issue.IssueNumber} had an empty response.");
             }
 
+            return intro + response + outro;
             return intro + response + outro;
         }
     }

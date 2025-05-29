@@ -51,7 +51,6 @@ namespace SearchIndexCreator
             {
                 throw new ArgumentNullException(nameof(_accountName), "Storage account name cannot be null or empty.");
             }
-
             var blobServiceClient = GetBlobServiceClient(_accountName);
             await EnsureBlobSoftDeleteEnabled(blobServiceClient);
 
@@ -64,12 +63,10 @@ namespace SearchIndexCreator
                 try
                 {
                     var jsonContent = JsonConvert.SerializeObject(content);
-
                     var blobHttpHeaders = new Azure.Storage.Blobs.Models.BlobHttpHeaders
                     {
                         ContentType = "application/json"
                     };
-
                     using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(jsonContent)))
                     {
                         await blobClient.UploadAsync(stream, new Azure.Storage.Blobs.Models.BlobUploadOptions
@@ -77,7 +74,6 @@ namespace SearchIndexCreator
                             HttpHeaders = blobHttpHeaders
                         });
                     }
-
                     Console.WriteLine($"Uploaded {content.Id} to {containerClient.Name} container.");
                 }
                 catch (Exception ex)
@@ -95,13 +91,10 @@ namespace SearchIndexCreator
                 Filter = IssueFilter.All,
                 Since = DateTimeOffset.Now.Subtract(TimeSpan.FromDays(days))
             };
-
             issueReq.Labels.Add("customer-reported");
-
             issueReq.Labels.Add("issue-addressed");
 
             var issues = await _client.Issue.GetAllForRepository(repoOwner, repoName, issueReq);
-
             var results = new List<IssuePayload>();
 
             foreach (var issue in issues)
@@ -120,10 +113,8 @@ namespace SearchIndexCreator
                     RepositoryName = repoName,
                     RepositoryOwnerName = repoOwner,
                 };
-
                 results.Add(payload);
             }
-
             return results;
         }
 
@@ -134,13 +125,11 @@ namespace SearchIndexCreator
             var documentPaths = new List<string>();
 
             await DirectoryTree(_token, documentPaths, repoOwner, _repo);
-
             foreach (var path in documentPaths)
             {
                 try
                 {
                     var fileContent = await _client.Repository.Content.GetAllContents(repoOwner, _repo, path);
-
                     if (!String.IsNullOrEmpty(fileContent[0].Content))
                     {
                         IssueTriageContent documentSearchContent = new IssueTriageContent(
@@ -167,7 +156,6 @@ namespace SearchIndexCreator
                     throw new Exception($"Error getting repository contents for path: {path}", ex);
                 }
             }
-
             return results;
         }
 
@@ -187,22 +175,17 @@ namespace SearchIndexCreator
 
             foreach (var issue in issues)
             {
-                // Find all pink and yellow labels
-                var (service, category, hasCustomerReported, hasIssueAddressed) = AnalyzeLabels(issue.Labels);
-
-                if (service == null || category == null || !hasCustomerReported || !hasIssueAddressed)
+                var (service, category) = GetServiceAndCategoryLabels(issue.Labels);
+                if (service is null || category is null)
                 {
-                    continue; // Skip this issue if it doesn't meet all criteria
+                    continue;
                 }
-
                 List<string> labels = new List<string>
                 {
                     service.Name,
                     category.Name
                 };
-
                 var codeowners = CodeOwnerUtils.GetCodeownersEntryForLabelList(labels).AzureSdkOwners;
-
                 IssueTriageContent searchContent = new IssueTriageContent(
                     $"{repoOwner}/{_repo}/{issue.Number.ToString()}/Issue",
                     repoOwner + "/" + _repo,
@@ -218,14 +201,11 @@ namespace SearchIndexCreator
                     CreatedAt = issue.CreatedAt,
                     CodeOwner = 0
                 };
-
                 results.Add(searchContent);
 
                 var issue_comments = await GetIssueCommentsAsync(repoOwner, _repo, issue.Number);
-
                 foreach (var comment in issue_comments)
                 {
-
                     IssueTriageContent commentContent = new IssueTriageContent(
                         $"{repoOwner}/{_repo}/{issue.Number.ToString()}/{comment.Id.ToString()}",
                         repoOwner + "/" + _repo,
@@ -241,12 +221,9 @@ namespace SearchIndexCreator
                         CreatedAt = comment.CreatedAt,
                         CodeOwner = codeowners.Contains(comment.User.Login) ? 1 : 0,
                     };
-
                     results.Add(commentContent);
-
                 }
             }
-
             return results;
         }
 
@@ -256,31 +233,27 @@ namespace SearchIndexCreator
         private static bool IsCategoryLabel(Octokit.Label label) =>
             string.Equals(label.Color, "ffeb77", StringComparison.InvariantCultureIgnoreCase);
 
-        private (Octokit.Label service, Octokit.Label category, bool hasCustomerReported, bool hasIssueAddressed) AnalyzeLabels(IReadOnlyList<Octokit.Label> labels)
+        private (Octokit.Label service, Octokit.Label category) GetServiceAndCategoryLabels(IReadOnlyList<Octokit.Label> labels)
         {
-            Octokit.Label service = null;
-            Octokit.Label category = null;
-            var hasCustomerReported = false;
-            var hasIssueAddressed = false;
+            Octokit.Label service = null, category = null;
 
             foreach (var label in labels)
             {
-                if (IsServiceLabel(label))
+                if (IsCategoryLabel(label))
+                {
                     service = label;
-                else if (IsCategoryLabel(label))
+                }
+                else if (IsServiceLabel(label))
+                {
                     category = label;
-                else if (label.Name.Equals("customer-reported", StringComparison.OrdinalIgnoreCase))
-                    hasCustomerReported = true;
-                else if (label.Name.Equals("issue-addressed", StringComparison.OrdinalIgnoreCase))
-                    hasIssueAddressed = true;
+                }
             }
-            return (service, category, hasCustomerReported, hasIssueAddressed);
+            return (service, category);
         }
 
         private async Task<List<IssueComment>> GetIssueCommentsAsync(string repoOwner, string repo, int issueNumber)
         {
             var issue_comments = await _client.Issue.Comment.GetAllForIssue(repoOwner, repo, issueNumber);
-
             return issue_comments
                 .Where(c =>
                     !c.User.Login.Equals("github-actions[bot]") && // Filter out bot comments
@@ -347,6 +320,24 @@ namespace SearchIndexCreator
             }
         }
 
+        private class TreeItem
+        {
+            public string Path { get; set; }
+            public string Mode { get; set; }
+            public string Type { get; set; }
+            public string Sha { get; set; }
+            public int Size { get; set; }
+            public string Url { get; set; }
+        }
+
+        private class GitTree
+        {
+            public string Sha { get; set; }
+            public string Url { get; set; }
+            public List<TreeItem> Tree { get; set; }
+            public bool Truncated { get; set; }
+        }
+
         private BlobServiceClient GetBlobServiceClient(string accountName)
         {
             BlobServiceClient client = new(
@@ -367,9 +358,7 @@ namespace SearchIndexCreator
                     Enabled = true,
                     Days = 7 // Set the desired retention period
                 };
-
                 await blobServiceClient.SetPropertiesAsync(properties.Value);
-
                 Console.WriteLine("Enabled native blob soft delete on the storage account.");
             }
             else
@@ -377,24 +366,5 @@ namespace SearchIndexCreator
                 Console.WriteLine("Blob soft delete is already enabled on the storage account.");
             }
         }
-
-        private class TreeItem
-        {
-            public string Path { get; set; }
-            public string Mode { get; set; }
-            public string Type { get; set; }
-            public string Sha { get; set; }
-            public int Size { get; set; }
-            public string Url { get; set; }
-        }
-
-        private class GitTree
-        {
-            public string Sha { get; set; }
-            public string Url { get; set; }
-            public List<TreeItem> Tree { get; set; }
-            public bool Truncated { get; set; }
-        }
-
     }
 }

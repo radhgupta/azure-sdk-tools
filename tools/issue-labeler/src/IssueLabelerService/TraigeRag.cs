@@ -35,7 +35,6 @@ namespace IssueLabelerService
             double scoreThreshold,
             Dictionary<string, string> labels = null)
         {
-
             var searchResults = await AzureSearchQueryAsync<IndexContent>(
                 indexName,
                 semanticConfigName,
@@ -45,7 +44,6 @@ namespace IssueLabelerService
             );
 
             var filteredIssues = new List<IndexContent>();
-
             foreach (var (issue, score) in searchResults)
             {
                 if (score >= scoreThreshold)
@@ -54,14 +52,12 @@ namespace IssueLabelerService
                     filteredIssues.Add(issue);
                 }
             }
-            
             return filteredIssues;
         }
 
         public double GetHighestScoreForContent(IEnumerable<IndexContent> issues, string repositoryName, int issueNumber)
         {
-
-            var maxScore = double.MinValue;
+            double maxScore = double.MinValue;
 
             foreach (var issue in issues)
             {
@@ -69,13 +65,11 @@ namespace IssueLabelerService
                 {
                     throw new Exception($"An issue in the search results for {repositoryName} using the Open AI Labeler for issue #{issueNumber} has a null score.");
                 }
-
                 if (issue.Score > maxScore)
                 {
                     maxScore = issue.Score.Value;
                 }
             }
-
             return maxScore;
         }
 

@@ -6,6 +6,7 @@ using Octokit;
 using Azure.Identity;
 using Azure.AI.OpenAI;
 using Azure.Search.Documents.Indexes;
+using System.Text.Json;
 
 namespace SearchIndexCreator
 {
@@ -20,14 +21,11 @@ namespace SearchIndexCreator
             var config = configuration.GetSection("Values");
 
             Console.WriteLine("Select an option:");
-            Console.WriteLine("1. Process Issues");
-            Console.WriteLine("2. Process Docs");
-            Console.WriteLine("3. Process Issue Examples");
-            Console.WriteLine("4. Process Demo");
-            Console.WriteLine("5. Create or Refresh Labels");
-            Console.WriteLine("6. Process Search Content");
-
-
+            Console.WriteLine("1. Process Search Content");
+            Console.WriteLine("2. Process Issue Examples");
+            Console.WriteLine("3. Process Demo");
+            Console.WriteLine("4. Create or Refresh Labels");
+            
             var input = Console.ReadLine();
 
             try
@@ -45,10 +43,7 @@ namespace SearchIndexCreator
                         break;
                     case "4":
                         await ProcessLabels(config);
-                        break;
-                    case "6":
-                        await ProcessSearchContent(config);
-                        break;
+                        break;  
                     default:
                         Console.WriteLine("Invalid option selected.");
                         break;
@@ -61,21 +56,6 @@ namespace SearchIndexCreator
         }
 
         private static async Task ProcessSearchContent(IConfigurationSection config)
-        {
-            // 1. Retrieve all issues from a repository
-            var searchContentRetrieval = new SearchContentRetrieval(config, config["GithubKey"]);
-
-            var searchContents = await searchContentRetrieval.RetrieveSearchContent("Azure", config["repo"]);
-
-            Console.WriteLine($"Retrieved {searchContents.Count} search contents from the repository.");
-            // 2. Upload the search contents to Azure Blob Storage
-            await searchContentRetrieval.UploadSearchContent(searchContents);
-            Console.WriteLine("Search contents uploaded to Azure Blob Storage.");
-            
-        }
-
-        // Retrieve issues from GitHub, upload to Azure Blob Storage, and create an Azure Search Index
-        private static async Task ProcessIssues(IConfigurationSection config)
         {
             // 1. Retrieve all issues from a repository
             var issueTriageContentRetrieval = new IssueTriageContentRetrieval(config);
