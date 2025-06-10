@@ -36,6 +36,7 @@ namespace SearchIndexCreator
                 DefaultRerankerThreshold = 1.0f
             };
 
+
             var agent = new KnowledgeAgent(
                 name: _config["KnowledgeAgentName"],
                 models: new[] { agentModel },
@@ -53,9 +54,13 @@ namespace SearchIndexCreator
                 var agent = await _indexClient.GetKnowledgeAgentAsync(agentName);
                 return agent != null;
             }
-            catch (Exception ex)
+            catch (RequestFailedException ex) when (ex.Status == 404)
             {
                 return false;
+            }
+            catch (Exception ex)
+            {
+                throw;
             }
         }
     }

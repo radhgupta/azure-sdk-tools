@@ -7,6 +7,11 @@ using Azure.Search.Documents.Agents;
 using Azure.Search.Documents.Agents.Models;
 using IssueLabeler.Shared;
 using Microsoft.Extensions.Logging;
+using System.Linq;
+using System.Collections.Generic;
+using Azure.Search.Documents.Agents;
+using Azure.Identity;
+using Azure.Search.Documents.Agents.Models;
 using Newtonsoft.Json.Linq;
 
 namespace IssueLabelerService
@@ -30,11 +35,17 @@ namespace IssueLabelerService
                 agentName: _config.KnowledgeAgentName,
                 tokenCredential: new DefaultAzureCredential()
             );
+            _retrievalClient = new KnowledgeAgentRetrievalClient(
+                endpoint: new Uri(_config.SearchEndpoint),
+                agentName: _config.KnowledgeAgentName,
+                tokenCredential: new DefaultAzureCredential()
+            );
         }
+
 
         public async Task<AnswerOutput> AnswerQuery(IssuePayload issue, Dictionary<string, string> labels)
         {
-            var modelName = _config.AnswerModelName;
+            string modelName = _config.AnswerModelName;
             var instructions = _config.KnowledgeAgentInstruction;
             var replacements = new Dictionary<string, string>
             {
@@ -48,9 +59,12 @@ namespace IssueLabelerService
             var retrievalResult = await _retrievalClient.RetrieveAsync(retrievalRequest);
 
             var contextBlock = GetContextBlock(retrievalResult);
+            var contextBlock = GetContextBlock(retrievalResult);
 
             var response = await _ragService.SendMessageQnaAsync(instructions, message, modelName, contextBlock);
+            var response = await _ragService.SendMessageQnaAsync(instructions, message, modelName, contextBlock);
 
+            var formattedResponse = FormatResponse(SuggestionsAnswerType, issue, response);
             var formattedResponse = FormatResponse(SuggestionsAnswerType, issue, response);
 
             _logger.LogInformation($"Open AI Response for {issue.RepositoryName} using the Complete Triage model for issue #{issue.IssueNumber}.: \n{formattedResponse}");
@@ -62,6 +76,7 @@ namespace IssueLabelerService
             };
         }
 
+        private KnowledgeAgentRetrievalRequest BuildRetrievalRequest(string instructions, string message)
         private KnowledgeAgentRetrievalRequest BuildRetrievalRequest(string instructions, string message)
         {
             var agentMessages = new[]
@@ -88,11 +103,6 @@ namespace IssueLabelerService
 
         private string GetContextBlock(KnowledgeAgentRetrievalResponse retrievalResult)
         {
-            if (retrievalResult.Response.Count == 0)
-            {
-                return null;
-            }
-
             var snippets = retrievalResult.Response[0].Content
                 .OfType<KnowledgeAgentMessageTextContent>()
                 .Select(content => content.Text)
@@ -157,3 +167,4 @@ namespace IssueLabelerService
         }
     }
 }
+

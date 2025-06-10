@@ -9,6 +9,7 @@ using Azure.Search.Documents.Indexes;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
+using System.Linq;
 using Azure.AI.OpenAI;
 
 namespace IssueLabelerService
