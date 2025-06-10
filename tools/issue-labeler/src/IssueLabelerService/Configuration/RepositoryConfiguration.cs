@@ -31,6 +31,10 @@ namespace IssueLabelerService
         public string ReposUsingCommonModel => GetItem("ReposUsingCommonModel");
         public string ScoreThreshold => GetItem("ScoreThreshold");
         public string SearchEndpoint => GetItem("SearchEndpoint");
+        public string KnowledgeAgentName => GetItem("KnowledgeAgentName");
+        public string KnowledgeAgentInstruction => GetItem("KnowledgeAgentInstruction");
+        public string KnowledgeAgentMessage => GetItem("KnowledgeAgentMessage");
+        public string KnowledgeAgentModelName => GetItem("KnowledgeAgentModelName");
         public string SolutionThreshold => GetItem("SolutionThreshold");
         public string SourceCount => GetItem("SourceCount");
         public string IssueModelAzureSdkForJavaBlobConfigNames => GetItem("IssueModel.azure_sdk_for_java.BlobConfigNames");

@@ -39,8 +39,7 @@ namespace IssueLabelerService
             var userPrompt = FormatUserPrompt(issue, categoryLabels, printableContent);
 
             var structure = BuildSearchStructure();
-            var result = await _ragService.SendMessageQnaAsync(_config.LabelInstructions, userPrompt, modelName, structure);
-            var result = await _ragService.SendMessageQnaAsync(_config.LabelInstructions, userPrompt, modelName, structure);
+            var result = await _ragService.SendMessageQnaAsync(_config.LabelInstructions, userPrompt, modelName, null, structure);
 
             if (string.IsNullOrEmpty(result))
             {
