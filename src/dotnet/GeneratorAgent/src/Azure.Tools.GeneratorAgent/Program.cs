@@ -141,24 +141,35 @@ namespace Azure.Tools.GeneratorAgent
             bool isGitHubActions = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(EnvironmentVariables.GitHubActions)) ||
                                  !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(EnvironmentVariables.GitHubWorkflow));
 
-            return isGitHubActions ? RuntimeEnvironment.DevOpsPipeline : RuntimeEnvironment.LocalDevelopment;
+            if (isGitHubActions)
+            {
+                return RuntimeEnvironment.DevOpsPipeline;
+            }
+
+            return RuntimeEnvironment.LocalDevelopment;
         }
 
         private static TokenCredentialOptions? CreateCredentialOptions()
         {
             string? tenantId = Environment.GetEnvironmentVariable(EnvironmentVariables.AzureTenantId);
-            string? authority = Environment.GetEnvironmentVariable(EnvironmentVariables.AzureAuthorityHost);
+            Uri? authorityHost = null;
 
-            if (tenantId == null && string.IsNullOrEmpty(authority))
+            string? authority = Environment.GetEnvironmentVariable(EnvironmentVariables.AzureAuthorityHost);
+            if (!string.IsNullOrEmpty(authority) && Uri.TryCreate(authority, UriKind.Absolute, out Uri? parsedAuthority))
+            {
+                authorityHost = parsedAuthority;
+            }
+
+            if (tenantId == null && authorityHost == null)
             {
                 return null;
             }
 
-            TokenCredentialOptions options = new();
+            var options = new TokenCredentialOptions();
 
-            if (!string.IsNullOrEmpty(authority) && Uri.TryCreate(authority, UriKind.Absolute, out Uri? parsedAuthority))
+            if (authorityHost != null)
             {
-                options.AuthorityHost = parsedAuthority;
+                options.AuthorityHost = authorityHost;
             }
 
             return options;
