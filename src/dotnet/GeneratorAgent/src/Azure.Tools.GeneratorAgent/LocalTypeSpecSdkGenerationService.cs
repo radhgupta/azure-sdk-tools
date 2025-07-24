@@ -1,5 +1,9 @@
 using Microsoft.Extensions.Logging;
 using Azure.Tools.GeneratorAgent.Configuration;
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Azure.Tools.GeneratorAgent
 {
@@ -35,6 +39,17 @@ namespace Azure.Tools.GeneratorAgent
             }
         }
 
+        protected virtual bool DirectoryExists(string path) => Directory.Exists(path);
+        protected virtual bool FileExists(string path) => File.Exists(path);
+        protected virtual void CreateDirectory(string path) => Directory.CreateDirectory(path);
+        protected virtual void DeleteDirectory(string path, bool recursive) => Directory.Delete(path, recursive);
+        protected virtual string[] GetFiles(string path) => Directory.GetFiles(path);
+        protected virtual string[] GetDirectories(string path) => Directory.GetDirectories(path);
+        protected virtual void MoveFile(string sourceFileName, string destFileName) => File.Move(sourceFileName, destFileName);
+        protected virtual void ReplaceFile(string sourceFileName, string destinationFileName, string destinationBackupFileName) => File.Replace(sourceFileName, destinationFileName, destinationBackupFileName);
+        protected virtual void DeleteFile(string path) => File.Delete(path);
+        protected virtual void MoveDirectory(string sourceDirName, string destDirName) => Directory.Move(sourceDirName, destDirName);
+
         /// <summary>
         /// Compiles a TypeSpec project into an SDK using the new simplified flow.
         /// </summary>
@@ -44,7 +59,7 @@ namespace Azure.Tools.GeneratorAgent
         {
             try
             {
-                if (!Directory.Exists(TypeSpecSourcePath))
+                if (!DirectoryExists(TypeSpecSourcePath))
                 {
                     throw new DirectoryNotFoundException($"TypeSpec project directory not found: {TypeSpecSourcePath}");
                 }
@@ -52,19 +67,16 @@ namespace Azure.Tools.GeneratorAgent
                 Logger.LogInformation("Starting TypeSpec compilation for project: {ProjectPath}", TypeSpecSourcePath);
                 Logger.LogInformation("Output SDK path: {OutputPath}", SdkOutputDirectory);
 
-                // Step 1: Install TypeSpec dependencies in project directory
                 if (!await InstallTypeSpecDependencies(cancellationToken))
                 {
                     return false;
                 }
 
-                // Step 2: Compile TypeSpec with output to SDK folder
                 if (!await CompileTypeSpec(cancellationToken))
                 {
                     return false;
                 }
 
-                // Step 3: Move generated files and cleanup
                 if (!MoveGeneratedFilesAndCleanup(cancellationToken))
                 {
                     return false;
@@ -80,10 +92,7 @@ namespace Azure.Tools.GeneratorAgent
             }
         }
 
-        /// <summary>
-        /// Installs TypeSpec dependencies in the specified project directory.
-        /// </summary>
-        private async Task<bool> InstallTypeSpecDependencies(CancellationToken cancellationToken)
+        protected virtual async Task<bool> InstallTypeSpecDependencies(CancellationToken cancellationToken)
         {
             Logger.LogInformation("Installing TypeSpec dependencies in: {ProjectPath}", TypeSpecSourcePath);
 
@@ -103,10 +112,7 @@ namespace Azure.Tools.GeneratorAgent
             return true;
         }
 
-        /// <summary>
-        /// Compiles the TypeSpec project using the tsp command.
-        /// </summary>
-        private async Task<bool> CompileTypeSpec(CancellationToken cancellationToken)
+        protected virtual async Task<bool> CompileTypeSpec(CancellationToken cancellationToken)
         {
             Logger.LogInformation("Compiling TypeSpec project");
 
@@ -128,14 +134,7 @@ namespace Azure.Tools.GeneratorAgent
             return true;
         }
 
-        /// <summary>
-        /// Moves generated files from TypeSpec output to the correct SDK location and cleans up temporary directories.
-        /// 
-        /// Note: TypeSpec's emitters each drop their files under a folder named after the emitter package 
-        /// (e.g., @typespec/http-client-csharp), to avoid collisions and mix-ups between formats. 
-        /// We need to move these files to the correct src/Generated folder structure in our SDK repository.
-        /// </summary>
-        private bool MoveGeneratedFilesAndCleanup(CancellationToken cancellationToken)
+        protected virtual bool MoveGeneratedFilesAndCleanup(CancellationToken cancellationToken)
         {
             try
             {
@@ -144,7 +143,7 @@ namespace Azure.Tools.GeneratorAgent
                 string tspOutputPath = Path.Combine(SdkOutputDirectory, AppSettings.TspOutputDirectoryName);
                 string generatedSourcePath = Path.Combine(tspOutputPath, AppSettings.TypeSpecDirectoryName, AppSettings.HttpClientCSharpDirectoryName);
 
-                if (!Directory.Exists(generatedSourcePath))
+                if (!DirectoryExists(generatedSourcePath))
                 {
                     Logger.LogError("Generated source directory not found: {GeneratedSourcePath}", generatedSourcePath);
                     return false;
@@ -154,9 +153,9 @@ namespace Azure.Tools.GeneratorAgent
 
                 MoveDirectoryContents(generatedSourcePath, SdkOutputDirectory, cancellationToken);
 
-                if (Directory.Exists(tspOutputPath))
+                if (DirectoryExists(tspOutputPath))
                 {
-                    Directory.Delete(tspOutputPath, true);
+                    DeleteDirectory(tspOutputPath, true);
                     Logger.LogInformation("Deleted tsp-output directory: {TspOutputPath}", tspOutputPath);
                 }
 
@@ -173,13 +172,13 @@ namespace Azure.Tools.GeneratorAgent
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!Directory.Exists(targetDir))
+            if (!DirectoryExists(targetDir))
             {
-                Directory.CreateDirectory(targetDir);
+                CreateDirectory(targetDir);
             }
 
-            string[] files = Directory.GetFiles(sourceDir);
-            string[] directories = Directory.GetDirectories(sourceDir);
+            string[] files = GetFiles(sourceDir);
+            string[] directories = GetDirectories(sourceDir);
 
             Logger.LogInformation("Moving {FileCount} files and {DirectoryCount} directories", files.Length, directories.Length);
 
@@ -235,19 +234,19 @@ namespace Azure.Tools.GeneratorAgent
             {
                 try
                 {
-                    if (File.Exists(destFile))
+                    if (FileExists(destFile))
                     {
                         string backupFile = destFile + ".backup";
-                        File.Replace(sourceFile, destFile, backupFile);
+                        ReplaceFile(sourceFile, destFile, backupFile);
                         
-                        if (File.Exists(backupFile))
+                        if (FileExists(backupFile))
                         {
-                            File.Delete(backupFile);
+                            DeleteFile(backupFile);
                         }
                     }
                     else
                     {
-                        File.Move(sourceFile, destFile);
+                        MoveFile(sourceFile, destFile);
                     }
                     
                     return;
@@ -268,13 +267,13 @@ namespace Azure.Tools.GeneratorAgent
             {
                 try
                 {
-                    if (Directory.Exists(destDir))
+                    if (DirectoryExists(destDir))
                     {
-                        Directory.Delete(destDir, true);
+                        DeleteDirectory(destDir, true);
                         Thread.Sleep(10);
                     }
 
-                    Directory.Move(sourceDir, destDir);
+                    MoveDirectory(sourceDir, destDir);
                     return;
                 }
                 catch (IOException) when (attempt < maxRetries)

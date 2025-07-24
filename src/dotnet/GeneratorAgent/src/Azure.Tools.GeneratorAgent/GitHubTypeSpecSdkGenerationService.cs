@@ -60,8 +60,6 @@ namespace Azure.Tools.GeneratorAgent
                 {
                     return false;
                 }
-
-                Logger.LogInformation("GitHub-based TypeSpec compilation completed successfully");
                 return true;
             }
             catch (Exception ex)
@@ -71,7 +69,7 @@ namespace Azure.Tools.GeneratorAgent
             }
         }
 
-        private string ExtractAzureSdkPath()
+        protected virtual string ExtractAzureSdkPath()
         {
             // Extract azure-sdk-for-net path from SDK output directory
             string azureSdkPath = SdkOutputDirectory;
@@ -90,17 +88,16 @@ namespace Azure.Tools.GeneratorAgent
                 throw new InvalidOperationException("Could not locate azure-sdk-for-net directory from SDK output path");
             }
 
-            Logger.LogInformation("Extracted azure-sdk path: {AzureSdkPath}", azureSdkPath);
             return azureSdkPath;
         }
 
-        private async Task<bool> RunPowerShellGenerationScript(string azureSdkPath, CancellationToken cancellationToken)
+        protected virtual async Task<bool> RunPowerShellGenerationScript(string azureSdkPath, CancellationToken cancellationToken)
         {
             Logger.LogInformation("Running PowerShell generation script");
 
             string scriptPath = Path.Combine(azureSdkPath, AppSettings.PowerShellScriptPath);
 
-            if (!File.Exists(scriptPath))
+            if (!FileExists(scriptPath))
             {
                 Logger.LogError("PowerShell script not found: {ScriptPath}", scriptPath);
                 return false;
@@ -132,13 +129,13 @@ namespace Azure.Tools.GeneratorAgent
             return true;
         }
 
-        private async Task<bool> RunDotNetBuildGenerateCode(CancellationToken cancellationToken)
+        protected virtual async Task<bool> RunDotNetBuildGenerateCode(CancellationToken cancellationToken)
         {
             Logger.LogInformation("Running dotnet build /t:generateCode");
 
             string srcDirectory = Path.Combine(SdkOutputDirectory, "src");
 
-            if (!Directory.Exists(srcDirectory))
+            if (!DirectoryExists(srcDirectory))
             {
                 Logger.LogError("Source directory not found: {SrcDirectory}", srcDirectory);
                 return false;
@@ -170,5 +167,9 @@ namespace Azure.Tools.GeneratorAgent
             Logger.LogInformation("dotnet build /t:generateCode completed successfully");
             return true;
         }
+
+        protected virtual bool FileExists(string path) => File.Exists(path);
+
+        protected virtual bool DirectoryExists(string path) => Directory.Exists(path);
     }
 }

@@ -8,7 +8,7 @@ namespace Azure.Tools.GeneratorAgent
     /// <summary>
     /// Executes external processes with comprehensive logging, timeout support, and proper resource management.
     /// </summary>
-    internal sealed class ProcessExecutor
+    internal class ProcessExecutor
     {
         private readonly ILogger<ProcessExecutor> Logger;
 
@@ -27,7 +27,7 @@ namespace Azure.Tools.GeneratorAgent
         /// <param name="timeout">Optional timeout for the command execution.</param>
         /// <returns>A tuple containing success status, standard output, and error output.</returns>
         /// <exception cref="ArgumentException">Thrown when command is null or whitespace.</exception>
-        public async Task<(bool Success, string Output, string Error)> ExecuteAsync(
+        public virtual async Task<(bool Success, string Output, string Error)> ExecuteAsync(
             string command,
             string arguments,
             string? workingDirectory,
@@ -46,19 +46,7 @@ namespace Azure.Tools.GeneratorAgent
                 object outputLock = new object();
                 object errorLock = new object();
 
-                using Process process = new Process
-                {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = command,
-                        Arguments = arguments,
-                        WorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory(),
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    }
-                };
+                using Process process = CreateProcess(command, arguments, workingDirectory);
 
                 process.OutputDataReceived += (_, e) =>
                 {
@@ -180,6 +168,39 @@ namespace Azure.Tools.GeneratorAgent
                 Logger.LogError(ex, "Unexpected error executing command: {Command}", command);
                 return (false, string.Empty, ex.Message);
             }
+        }
+
+        /// <summary>
+        /// Creates a new process with the specified configuration. Virtual for testing.
+        /// </summary>
+        /// <param name="command">The command to execute.</param>
+        /// <param name="arguments">The command arguments.</param>
+        /// <param name="workingDirectory">The working directory.</param>
+        /// <returns>A configured Process instance.</returns>
+        protected virtual Process CreateProcess(string command, string arguments, string? workingDirectory)
+        {
+            return new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = command,
+                    Arguments = arguments,
+                    WorkingDirectory = workingDirectory ?? GetCurrentDirectory(),
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+        }
+
+        /// <summary>
+        /// Gets the current directory. Virtual for testing.
+        /// </summary>
+        /// <returns>The current directory path.</returns>
+        protected virtual string GetCurrentDirectory()
+        {
+            return Directory.GetCurrentDirectory();
         }
     }
 }

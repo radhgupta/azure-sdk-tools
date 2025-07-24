@@ -93,6 +93,7 @@ namespace Azure.Tools.GeneratorAgent
                 TokenCredential credential = credentialFactory.CreateCredential(environment, credentialOptions);
 
                 ProcessExecutor processExecutor = new(LoggerFactory.CreateLogger<ProcessExecutor>());
+
                 PersistentAgentsAdministrationClient adminClient = new(
                     new Uri(appSettings.ProjectEndpoint),
                     credential);
