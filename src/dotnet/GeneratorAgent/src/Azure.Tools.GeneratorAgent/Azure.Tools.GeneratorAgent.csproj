@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <SignAssembly>false</SignAssembly>
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>typespec-generator</ToolCommandName>
+    <ToolCommandName>generate</ToolCommandName>
     <PackageOutputPath>./nupkg</PackageOutputPath>
   </PropertyGroup>
 
