@@ -55,9 +55,6 @@ namespace Azure.Tools.GeneratorAgent.Tests
 
             public async Task<bool> TestCompileTypeSpec(CancellationToken cancellationToken)
                 => await base.CompileTypeSpec(cancellationToken);
-
-            public bool TestMoveGeneratedFilesAndCleanup(CancellationToken cancellationToken)
-                => base.MoveGeneratedFilesAndCleanup(cancellationToken);
         }
 
         [Test]
@@ -90,7 +87,7 @@ namespace Azure.Tools.GeneratorAgent.Tests
                 ValidTypeSpecPath,
                 ValidSdkOutputDirectory));
 
-            Assert.That(ex.ParamName, Is.EqualTo("appSettings"));
+            Assert.That(ex?.ParamName, Is.EqualTo("appSettings"));
         }
 
         [Test]
@@ -106,7 +103,7 @@ namespace Azure.Tools.GeneratorAgent.Tests
                 ValidTypeSpecPath,
                 ValidSdkOutputDirectory));
 
-            Assert.That(ex.ParamName, Is.EqualTo("logger"));
+            Assert.That(ex?.ParamName, Is.EqualTo("logger"));
         }
 
         [Test]
@@ -122,7 +119,7 @@ namespace Azure.Tools.GeneratorAgent.Tests
                 ValidTypeSpecPath,
                 ValidSdkOutputDirectory));
 
-            Assert.That(ex.ParamName, Is.EqualTo("processExecutor"));
+            Assert.That(ex?.ParamName, Is.EqualTo("processExecutor"));
         }
 
         [Test]
@@ -139,7 +136,7 @@ namespace Azure.Tools.GeneratorAgent.Tests
                 null!,
                 ValidSdkOutputDirectory));
 
-            Assert.That(ex.ParamName, Is.EqualTo("typeSpecSourcePath"));
+            Assert.That(ex?.ParamName, Is.EqualTo("typeSpecSourcePath"));
         }
 
         [TestCase("")]
@@ -158,7 +155,7 @@ namespace Azure.Tools.GeneratorAgent.Tests
                 invalidPath,
                 ValidSdkOutputDirectory));
 
-            Assert.That(ex.ParamName, Is.EqualTo("typeSpecSourcePath"));
+            Assert.That(ex?.ParamName, Is.EqualTo("typeSpecSourcePath"));
         }
 
         [Test]
@@ -175,7 +172,7 @@ namespace Azure.Tools.GeneratorAgent.Tests
                 ValidTypeSpecPath,
                 null!));
 
-            Assert.That(ex.ParamName, Is.EqualTo("sdkOutputDirectory"));
+            Assert.That(ex?.ParamName, Is.EqualTo("sdkOutputDirectory"));
         }
 
         [TestCase("")]
@@ -194,7 +191,7 @@ namespace Azure.Tools.GeneratorAgent.Tests
                 ValidTypeSpecPath,
                 invalidPath));
 
-            Assert.That(ex.ParamName, Is.EqualTo("sdkOutputDirectory"));
+            Assert.That(ex?.ParamName, Is.EqualTo("sdkOutputDirectory"));
         }
 
         [Test]
@@ -285,30 +282,6 @@ namespace Azure.Tools.GeneratorAgent.Tests
         }
 
         [Test]
-        public async Task CompileTypeSpecAsync_WithFileMovementFailure_ReturnsFalse()
-        {
-            var appSettings = CreateValidAppSettings();
-            var logger = CreateMockLogger();
-            var processExecutor = CreateMockProcessExecutor();
-
-            SetupSuccessfulProcessExecution(processExecutor);
-
-            var service = new TestableLocalTypeSpecSdkGenerationService(
-                appSettings,
-                logger.Object,
-                processExecutor.Object,
-                ValidTypeSpecPath,
-                ValidSdkOutputDirectory)
-            {
-                ShouldDirectoryExist = false
-            };
-
-            var result = await service.CompileTypeSpecAsync();
-
-            Assert.That(result, Is.False);
-        }
-
-        [Test]
         public async Task CompileTypeSpecAsync_WithCancellation_ReturnsFalse()
         {
             var appSettings = CreateValidAppSettings();
@@ -378,8 +351,8 @@ namespace Azure.Tools.GeneratorAgent.Tests
             var result = await service.TestInstallTypeSpecDependencies(CancellationToken.None);
 
             Assert.That(result, Is.True);
-            VerifyInformationLogging(logger, "Installing TypeSpec dependencies");
-            VerifyInformationLogging(logger, "TypeSpec dependencies installed successfully");
+            VerifyInformationLogging(logger, "Installing TypeSpec dependencies globally");
+            VerifyInformationLogging(logger, "TypeSpec dependencies installed globally successfully");
         }
 
         [Test]
@@ -401,7 +374,7 @@ namespace Azure.Tools.GeneratorAgent.Tests
             var result = await service.TestInstallTypeSpecDependencies(CancellationToken.None);
 
             Assert.That(result, Is.False);
-            VerifyErrorLogging(logger, "npm install failed");
+            VerifyErrorLogging(logger, "Global npm install failed");
         }
 
         [Test]
@@ -424,8 +397,8 @@ namespace Azure.Tools.GeneratorAgent.Tests
 
             processExecutor.Verify(x => x.ExecuteAsync(
                 ValidCommandExecutor,
-                $"{ValidCommandPrefix} npm install --save-dev {ValidTypespecEmitterPackage}",
-                ValidTypeSpecPath,
+                $"{ValidCommandPrefix} npm install --global {ValidTypespecEmitterPackage}",
+                null, // Changed from ValidTypeSpecPath to null for global install
                 It.IsAny<CancellationToken>(),
                 It.IsAny<TimeSpan?>()), Times.Once);
         }
@@ -474,54 +447,10 @@ namespace Azure.Tools.GeneratorAgent.Tests
             var expectedTspOutputPath = Path.Combine(ValidSdkOutputDirectory, ValidTspOutputDirectoryName);
             processExecutor.Verify(x => x.ExecuteAsync(
                 ValidCommandExecutor,
-                $"{ValidCommandPrefix} npx tsp compile . --emit {ValidTypespecEmitterPackage} --output-dir \"{expectedTspOutputPath}\"",
+                $"{ValidCommandPrefix} npx tsp compile . --emit {ValidTypespecEmitterPackage} --option \"{ValidTypespecEmitterPackage}.emitter-output-dir={expectedTspOutputPath}\"",
                 ValidTypeSpecPath,
                 It.IsAny<CancellationToken>(),
                 It.IsAny<TimeSpan?>()), Times.Once);
-        }
-
-        [Test]
-        public void MoveGeneratedFilesAndCleanup_WithSuccessfulExecution_ReturnsTrue()
-        {
-            var appSettings = CreateValidAppSettings();
-            var logger = CreateMockLogger();
-            var processExecutor = CreateMockProcessExecutor();
-
-            var service = new TestableLocalTypeSpecSdkGenerationService(
-                appSettings,
-                logger.Object,
-                processExecutor.Object,
-                ValidTypeSpecPath,
-                ValidSdkOutputDirectory);
-
-            var result = service.TestMoveGeneratedFilesAndCleanup(CancellationToken.None);
-
-            Assert.That(result, Is.True);
-            VerifyInformationLogging(logger, "Moving generated files and cleaning up");
-            VerifyInformationLogging(logger, "Successfully moved");
-        }
-
-        [Test]
-        public void MoveGeneratedFilesAndCleanup_WithMissingGeneratedDirectory_ReturnsFalse()
-        {
-            var appSettings = CreateValidAppSettings();
-            var logger = CreateMockLogger();
-            var processExecutor = CreateMockProcessExecutor();
-
-            var service = new TestableLocalTypeSpecSdkGenerationService(
-                appSettings,
-                logger.Object,
-                processExecutor.Object,
-                ValidTypeSpecPath,
-                ValidSdkOutputDirectory)
-            {
-                ShouldDirectoryExist = false
-            };
-
-            var result = service.TestMoveGeneratedFilesAndCleanup(CancellationToken.None);
-
-            Assert.That(result, Is.False);
-            VerifyErrorLogging(logger, "Generated source directory not found");
         }
 
         private static AppSettings CreateValidAppSettings()
@@ -561,8 +490,8 @@ namespace Azure.Tools.GeneratorAgent.Tests
         {
             processExecutor.Setup(x => x.ExecuteAsync(
                     ValidCommandExecutor,
-                    It.Is<string>(args => args.Contains("npm install")),
-                    ValidTypeSpecPath,
+                    It.Is<string>(args => args.Contains("npm install --global")),
+                    null, // Changed from ValidTypeSpecPath to null for global install
                     It.IsAny<CancellationToken>(),
                     It.IsAny<TimeSpan?>()))
                 .ReturnsAsync((true, "npm install succeeded", string.Empty));
@@ -572,8 +501,8 @@ namespace Azure.Tools.GeneratorAgent.Tests
         {
             processExecutor.Setup(x => x.ExecuteAsync(
                     ValidCommandExecutor,
-                    It.Is<string>(args => args.Contains("npm install")),
-                    ValidTypeSpecPath,
+                    It.Is<string>(args => args.Contains("npm install --global")),
+                    null, // Changed from ValidTypeSpecPath to null for global install
                     It.IsAny<CancellationToken>(),
                     It.IsAny<TimeSpan?>()))
                 .ReturnsAsync((false, "npm install output", "npm install failed"));

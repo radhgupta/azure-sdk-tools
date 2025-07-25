@@ -6,7 +6,7 @@ namespace Azure.Tools.GeneratorAgent
     /// <summary>
     /// SDK generation service for TypeSpec projects from GitHub repositories.
     /// </summary>
-    internal class GitHubTypeSpecSdkGenerationService : ISdkGenerationService
+    internal class GitHubTypeSpecSdkGenerationService : SdkGenerationServiceBase
     {
         private readonly ILogger<GitHubTypeSpecSdkGenerationService> Logger;
         private readonly ProcessExecutor ProcessExecutor;
@@ -38,7 +38,7 @@ namespace Azure.Tools.GeneratorAgent
             SdkOutputDirectory = sdkOutputDirectory;
         }
 
-        public async Task<bool> CompileTypeSpecAsync(CancellationToken cancellationToken = default)
+        public override async Task<bool> CompileTypeSpecAsync(CancellationToken cancellationToken = default)
         {
             try
             {
@@ -167,9 +167,5 @@ namespace Azure.Tools.GeneratorAgent
             Logger.LogInformation("dotnet build /t:generateCode completed successfully");
             return true;
         }
-
-        protected virtual bool FileExists(string path) => File.Exists(path);
-
-        protected virtual bool DirectoryExists(string path) => Directory.Exists(path);
     }
 }

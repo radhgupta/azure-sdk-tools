@@ -41,9 +41,9 @@ namespace Azure.Tools.GeneratorAgent
             return await rootCommand.InvokeAsync(args).ConfigureAwait(false);
         }
 
-        internal async Task<int> HandleCommandAsync(string? typespecPath, string? commitId, string? typespecSpecDirectory, string sdkPath)
+        internal async Task<int> HandleCommandAsync(string? typespecPath, string? commitId, string sdkPath)
         {
-            int validationResult = CommandLineConfig.ValidateInput(typespecPath, commitId, typespecSpecDirectory);
+            int validationResult = CommandLineConfig.ValidateInput(typespecPath, commitId);
             if (validationResult != ExitCodeSuccess)
             {
                 return validationResult;
@@ -59,7 +59,7 @@ namespace Azure.Tools.GeneratorAgent
 
             try
             {
-                return await ExecuteGenerationAsync(typespecPath, commitId, typespecSpecDirectory, sdkPath, cancellationTokenSource.Token).ConfigureAwait(false);
+                return await ExecuteGenerationAsync(typespecPath, commitId, sdkPath, cancellationTokenSource.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -76,7 +76,6 @@ namespace Azure.Tools.GeneratorAgent
         private async Task<int> ExecuteGenerationAsync(
             string? typespecPath,
             string? commitId,
-            string? typespecSpecDirectory,
             string sdkOutputPath,
             CancellationToken cancellationToken)
         {
@@ -98,9 +97,20 @@ namespace Azure.Tools.GeneratorAgent
                     new Uri(appSettings.ProjectEndpoint),
                     credential);
 
-                ISdkGenerationService sdkGenerationService = !string.IsNullOrWhiteSpace(typespecPath)
-                    ? SdkGenerationServiceFactory.CreateForLocalPath(typespecPath, sdkOutputPath, appSettings, LoggerFactory, processExecutor)
-                    : SdkGenerationServiceFactory.CreateForGitHubCommit(commitId!, typespecSpecDirectory!, sdkOutputPath, appSettings, LoggerFactory, processExecutor);
+                // Determine which service to use based on provided parameters
+                ISdkGenerationService sdkGenerationService;
+                if (string.IsNullOrWhiteSpace(commitId))
+                {
+                    // Local generation: typespecPath is a local directory path
+                    Logger.LogInformation("Using local TypeSpec SDK generation service");
+                    sdkGenerationService = SdkGenerationServiceFactory.CreateForLocalPath(typespecPath!, sdkOutputPath, appSettings, LoggerFactory, processExecutor);
+                }
+                else
+                {
+                    // GitHub generation: typespecPath is the spec directory, commitId is provided
+                    Logger.LogInformation("Using GitHub TypeSpec SDK generation service");
+                    sdkGenerationService = SdkGenerationServiceFactory.CreateForGitHubCommit(commitId, typespecPath!, sdkOutputPath, appSettings, LoggerFactory, processExecutor);
+                }
 
                 Logger.LogInformation("Initializing error fixing agent");
                 await using ErrorFixerAgent agent = new(

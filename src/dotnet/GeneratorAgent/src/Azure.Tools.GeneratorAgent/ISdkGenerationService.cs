@@ -2,6 +2,10 @@ namespace Azure.Tools.GeneratorAgent
 {
     /// <summary>
     /// Defines the contract for SDK generation from TypeSpec sources.
+    /// <remarks>
+    /// Implementations should inherit from <see cref="SdkGenerationServiceBase"/> 
+    /// to get common file system operations for free.
+    /// </remarks>
     /// </summary>
     internal interface ISdkGenerationService
     {

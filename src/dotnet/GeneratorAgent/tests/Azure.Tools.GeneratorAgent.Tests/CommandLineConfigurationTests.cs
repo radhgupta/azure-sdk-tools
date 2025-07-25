@@ -65,7 +65,7 @@ namespace Azure.Tools.GeneratorAgent.Tests
         {
             Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
             CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            Task<int> MockHandler(string? a, string? b, string? c, string d) => Task.FromResult(0);
+            Task<int> MockHandler(string? a, string? b, string c) => Task.FromResult(0);
 
             RootCommand rootCommand = commandLineConfiguration.CreateRootCommand(MockHandler);
 
@@ -78,11 +78,11 @@ namespace Azure.Tools.GeneratorAgent.Tests
         {
             Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
             CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            Task<int> MockHandler(string? a, string? b, string? c, string d) => Task.FromResult(0);
+            Task<int> MockHandler(string? a, string? b, string c) => Task.FromResult(0);
 
             RootCommand rootCommand = commandLineConfiguration.CreateRootCommand(MockHandler);
 
-            Assert.That(rootCommand.Options.Count, Is.EqualTo(4));
+            Assert.That(rootCommand.Options.Count, Is.EqualTo(3));
         }
 
         [Test]
@@ -90,14 +90,14 @@ namespace Azure.Tools.GeneratorAgent.Tests
         {
             Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
             CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            Task<int> MockHandler(string? a, string? b, string? c, string d) => Task.FromResult(0);
+            Task<int> MockHandler(string? a, string? b, string c) => Task.FromResult(0);
 
             RootCommand rootCommand = commandLineConfiguration.CreateRootCommand(MockHandler);
 
             Option? typespecPathOption = rootCommand.Options.FirstOrDefault(o => o.Name == "typespec-path");
             Assert.That(typespecPathOption, Is.Not.Null);
-            Assert.That(typespecPathOption.Description, Is.EqualTo("Path to the local TypeSpec project directory"));
-            Assert.That(typespecPathOption.IsRequired, Is.False);
+            Assert.That(typespecPathOption.Description, Is.EqualTo("Path to the local TypeSpec project directory or TypeSpec specification directory (e.g., specification/testservice/TestService)"));
+            Assert.That(typespecPathOption.IsRequired, Is.True);
         }
 
         [Test]
@@ -105,29 +105,14 @@ namespace Azure.Tools.GeneratorAgent.Tests
         {
             Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
             CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            Task<int> MockHandler(string? a, string? b, string? c, string d) => Task.FromResult(0);
+            Task<int> MockHandler(string? a, string? b, string c) => Task.FromResult(0);
 
             RootCommand rootCommand = commandLineConfiguration.CreateRootCommand(MockHandler);
 
             Option? commitIdOption = rootCommand.Options.FirstOrDefault(o => o.Name == "commit-id");
             Assert.That(commitIdOption, Is.Not.Null);
-            Assert.That(commitIdOption.Description, Is.EqualTo("GitHub commit ID to generate SDK from"));
+            Assert.That(commitIdOption.Description, Is.EqualTo("GitHub commit ID to generate SDK from (optional, used with --typespec-path for GitHub generation)"));
             Assert.That(commitIdOption.IsRequired, Is.False);
-        }
-
-        [Test]
-        public void CreateRootCommand_ShouldHaveTypespecSpecDirectoryOption()
-        {
-            Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
-            CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            Task<int> MockHandler(string? a, string? b, string? c, string d) => Task.FromResult(0);
-
-            RootCommand rootCommand = commandLineConfiguration.CreateRootCommand(MockHandler);
-
-            Option? typespecSpecDirOption = rootCommand.Options.FirstOrDefault(o => o.Name == "typespec-spec-directory");
-            Assert.That(typespecSpecDirOption, Is.Not.Null);
-            Assert.That(typespecSpecDirOption.Description, Is.EqualTo("TypeSpec specification directory (e.g., specification/testservice/TestService). Required when using --commit-id."));
-            Assert.That(typespecSpecDirOption.IsRequired, Is.False);
         }
 
         [Test]
@@ -135,7 +120,7 @@ namespace Azure.Tools.GeneratorAgent.Tests
         {
             Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
             CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            Task<int> MockHandler(string? a, string? b, string? c, string d) => Task.FromResult(0);
+            Task<int> MockHandler(string? a, string? b, string c) => Task.FromResult(0);
 
             RootCommand rootCommand = commandLineConfiguration.CreateRootCommand(MockHandler);
 
@@ -150,7 +135,7 @@ namespace Azure.Tools.GeneratorAgent.Tests
         {
             Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
             CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            Task<int> MockHandler(string? a, string? b, string? c, string d) => Task.FromResult(0);
+            Task<int> MockHandler(string? a, string? b, string c) => Task.FromResult(0);
 
             RootCommand rootCommand = commandLineConfiguration.CreateRootCommand(MockHandler);
 
@@ -163,148 +148,68 @@ namespace Azure.Tools.GeneratorAgent.Tests
             Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
             CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
             const string typespecPath = "/path/to/typespec";
-            const string commitId = null;
-            const string typespecSpecDirectory = null;
+            const string? commitId = null;
 
-            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId, typespecSpecDirectory);
+            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId);
 
             Assert.That(result, Is.EqualTo(0));
             VerifyLogInformation(mockLogger, "Input validation completed successfully");
         }
 
         [Test]
-        public void ValidateInput_WithValidCommitIdAndSpecDirectory_ShouldReturnSuccess()
+        public void ValidateInput_WithTypespecPathAndCommitId_ShouldReturnSuccess()
         {
             Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
             CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            const string typespecPath = null;
+            const string typespecPath = "specification/testservice/TestService";
             const string commitId = "abc123";
-            const string typespecSpecDirectory = "specification/testservice/TestService";
 
-            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId, typespecSpecDirectory);
+            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId);
 
             Assert.That(result, Is.EqualTo(0));
             VerifyLogInformation(mockLogger, "Input validation completed successfully");
         }
 
         [Test]
-        public void ValidateInput_WithNullTypespecPathAndNullCommitId_ShouldReturnFailureAndLogError()
+        public void ValidateInput_WithNullTypespecPath_ShouldReturnFailureAndLogError()
         {
             Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
             CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            const string typespecPath = null;
-            const string commitId = null;
-            const string typespecSpecDirectory = null;
+            const string? typespecPath = null;
+            const string? commitId = null;
 
-            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId, typespecSpecDirectory);
+            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId);
 
             Assert.That(result, Is.EqualTo(1));
-            VerifyLogError(mockLogger, "Either --typespec-path or --commit-id must be specified");
+            VerifyLogError(mockLogger, "Option --typespec-path is required");
         }
 
         [Test]
-        public void ValidateInput_WithEmptyTypespecPathAndEmptyCommitId_ShouldReturnFailureAndLogError()
+        public void ValidateInput_WithEmptyTypespecPath_ShouldReturnFailureAndLogError()
         {
             Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
             CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
             const string typespecPath = "";
-            const string commitId = "";
-            const string typespecSpecDirectory = null;
+            const string? commitId = null;
 
-            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId, typespecSpecDirectory);
+            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId);
 
             Assert.That(result, Is.EqualTo(1));
-            VerifyLogError(mockLogger, "Either --typespec-path or --commit-id must be specified");
+            VerifyLogError(mockLogger, "Option --typespec-path is required");
         }
 
         [Test]
-        public void ValidateInput_WithWhitespaceTypespecPathAndWhitespaceCommitId_ShouldReturnFailureAndLogError()
+        public void ValidateInput_WithWhitespaceTypespecPath_ShouldReturnFailureAndLogError()
         {
             Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
             CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
             const string typespecPath = "   ";
-            const string commitId = "   ";
-            const string typespecSpecDirectory = null;
+            const string? commitId = null;
 
-            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId, typespecSpecDirectory);
-
-            Assert.That(result, Is.EqualTo(1));
-            VerifyLogError(mockLogger, "Either --typespec-path or --commit-id must be specified");
-        }
-
-        [Test]
-        public void ValidateInput_WithBothTypespecPathAndCommitId_ShouldReturnFailureAndLogError()
-        {
-            Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
-            CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            const string typespecPath = "/path/to/typespec";
-            const string commitId = "abc123";
-            const string typespecSpecDirectory = "specification/testservice/TestService";
-
-            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId, typespecSpecDirectory);
+            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId);
 
             Assert.That(result, Is.EqualTo(1));
-            VerifyLogError(mockLogger, "Options --typespec-path and --commit-id are mutually exclusive. Specify only one");
-        }
-
-        [Test]
-        public void ValidateInput_WithCommitIdButNoSpecDirectory_ShouldReturnFailureAndLogError()
-        {
-            Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
-            CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            const string typespecPath = null;
-            const string commitId = "abc123";
-            const string typespecSpecDirectory = null;
-
-            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId, typespecSpecDirectory);
-
-            Assert.That(result, Is.EqualTo(1));
-            VerifyLogError(mockLogger, "Option --typespec-spec-directory is required when using --commit-id");
-        }
-
-        [Test]
-        public void ValidateInput_WithCommitIdAndEmptySpecDirectory_ShouldReturnFailureAndLogError()
-        {
-            Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
-            CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            const string typespecPath = null;
-            const string commitId = "abc123";
-            const string typespecSpecDirectory = "";
-
-            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId, typespecSpecDirectory);
-
-            Assert.That(result, Is.EqualTo(1));
-            VerifyLogError(mockLogger, "Option --typespec-spec-directory is required when using --commit-id");
-        }
-
-        [Test]
-        public void ValidateInput_WithCommitIdAndWhitespaceSpecDirectory_ShouldReturnFailureAndLogError()
-        {
-            Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
-            CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            const string typespecPath = null;
-            const string commitId = "abc123";
-            const string typespecSpecDirectory = "   ";
-
-            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId, typespecSpecDirectory);
-
-            Assert.That(result, Is.EqualTo(1));
-            VerifyLogError(mockLogger, "Option --typespec-spec-directory is required when using --commit-id");
-        }
-
-        [Test]
-        public void ValidateInput_WithTypespecPathAndSpecDirectory_ShouldReturnSuccessAndIgnoreSpecDirectory()
-        {
-            Mock<ILogger<CommandLineConfiguration>> mockLogger = CreateMockLogger();
-            CommandLineConfiguration commandLineConfiguration = CreateCommandLineConfiguration(mockLogger);
-            const string typespecPath = "/path/to/typespec";
-            const string commitId = null;
-            const string typespecSpecDirectory = "specification/testservice/TestService";
-
-            int result = commandLineConfiguration.ValidateInput(typespecPath, commitId, typespecSpecDirectory);
-
-            Assert.That(result, Is.EqualTo(0));
-            VerifyLogInformation(mockLogger, "Input validation completed successfully");
+            VerifyLogError(mockLogger, "Option --typespec-path is required");
         }
     }
 }

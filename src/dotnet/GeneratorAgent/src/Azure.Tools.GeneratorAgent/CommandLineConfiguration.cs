@@ -9,8 +9,7 @@ namespace Azure.Tools.GeneratorAgent
     internal sealed class CommandLineConfiguration
     {
         private const int ExitCodeSuccess = 0;
-        private const int ExitCodeFailure = 1;
-        
+        private const int ExitCodeFailure = 1;    
         private readonly ILogger<CommandLineConfiguration> Logger;
 
         public CommandLineConfiguration(ILogger<CommandLineConfiguration> logger)
@@ -23,24 +22,23 @@ namespace Azure.Tools.GeneratorAgent
         /// </summary>
         /// <param name="handler">The handler function to execute when the command is invoked.</param>
         /// <returns>The configured root command.</returns>
-        public RootCommand CreateRootCommand(Func<string?, string?, string?, string, Task<int>> handler)
+        public RootCommand CreateRootCommand(Func<string?, string?, string, Task<int>> handler)
         {
             RootCommand rootCommand = new("Azure SDK Generator Agent");
 
             Option<string?> typespecPathOption = new(
-                "--typespec-path",
-                "Path to the local TypeSpec project directory");
+                new[] { "--typespec-path", "-t" },
+                "Path to the local TypeSpec project directory or TypeSpec specification directory (e.g., specification/testservice/TestService)")
+            {
+                IsRequired = true
+            };
 
             Option<string?> commitIdOption = new(
-                "--commit-id",
-                "GitHub commit ID to generate SDK from");
-
-            Option<string?> typespecSpecDirectoryOption = new(
-                "--typespec-spec-directory",
-                "TypeSpec specification directory (e.g., specification/testservice/TestService). Required when using --commit-id.");
+                new[] { "--commit-id", "-c" },
+                "GitHub commit ID to generate SDK from (optional, used with --typespec-path for GitHub generation)");
 
             Option<string> sdkOutputPathOption = new(
-                "--sdk-path",
+                new[] { "--sdk-path", "-o" },
                 "Output directory for generated SDK files")
             {
                 IsRequired = true
@@ -48,35 +46,21 @@ namespace Azure.Tools.GeneratorAgent
 
             rootCommand.AddOption(typespecPathOption);
             rootCommand.AddOption(commitIdOption);
-            rootCommand.AddOption(typespecSpecDirectoryOption);
             rootCommand.AddOption(sdkOutputPathOption);
 
             rootCommand.SetHandler(handler,
                 typespecPathOption,
                 commitIdOption,
-                typespecSpecDirectoryOption,
                 sdkOutputPathOption);
 
             return rootCommand;
         }
 
-        internal int ValidateInput(string? typespecPath, string? commitId, string? typespecSpecDirectory)
+        internal int ValidateInput(string? typespecPath, string? commitId)
         {
-            if (string.IsNullOrWhiteSpace(typespecPath) && string.IsNullOrWhiteSpace(commitId))
+            if (string.IsNullOrWhiteSpace(typespecPath))
             {
-                Logger.LogError("Either --typespec-path or --commit-id must be specified");
-                return ExitCodeFailure;
-            }
-
-            if (!string.IsNullOrWhiteSpace(typespecPath) && !string.IsNullOrWhiteSpace(commitId))
-            {
-                Logger.LogError("Options --typespec-path and --commit-id are mutually exclusive. Specify only one");
-                return ExitCodeFailure;
-            }
-
-            if (!string.IsNullOrWhiteSpace(commitId) && string.IsNullOrWhiteSpace(typespecSpecDirectory))
-            {
-                Logger.LogError("Option --typespec-spec-directory is required when using --commit-id");
+                Logger.LogError("Option --typespec-path is required");
                 return ExitCodeFailure;
             }
 
